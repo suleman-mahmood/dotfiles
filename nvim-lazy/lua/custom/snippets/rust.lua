@@ -23,9 +23,14 @@ local types = require("luasnip.util.types")
 local conds = require("luasnip.extras.conditions")
 local conds_expand = require("luasnip.extras.conditions.expand")
 
+local function to_pascal_case(args, parent, user_args)
+  local res = require("textcase").api.to_pascal_case(args[1][1])
+  return res
+end
+
 ls.add_snippets("rust", {
   s(
-    "api",
+    "api_template",
     fmta(
       [[
 #[derive(Template)]
@@ -52,11 +57,36 @@ async fn <fn_name>(pool: web::Data<<PgPool>>) ->> HttpResponse {
     )
   ),
   s(
-    "apipost",
+    "api_get",
     fmta(
       [=[
 #[derive(Deserialize)]
-struct <body_same>Body {
+struct <query>Query {
+    <param>: <param_type>,
+}
+
+#[get["<path>"]]
+async fn <fn_name>(params: web::Query<<<query>Query>><pool>) ->> HttpResponse {
+    todo!()
+}<finish>
+      ]=],
+      {
+        path = i(1),
+        fn_name = i(2),
+        query = f(to_pascal_case, { 2 }),
+        param = i(3),
+        param_type = i(4),
+        pool = c(5, { t(", pool: web::Data<<PgPool>>"), t("") }),
+        finish = i(0),
+      }
+    )
+  ),
+  s(
+    "api_post",
+    fmta(
+      [=[
+#[derive(Deserialize)]
+struct <body>Body {
     <param>: <param_type>,
 }
 
@@ -68,35 +98,9 @@ async fn <fn_name>(body: web::Json<<<body>Body>>, pool: web::Data<<PgPool>>) ->>
       {
         path = i(1),
         fn_name = i(2),
-        body = i(3),
-        body_same = rep(3),
-        param = i(4),
-        param_type = i(5),
-        finish = i(0),
-      }
-    )
-  ),
-  s(
-    "apiget",
-    fmta(
-      [=[
-#[derive(Deserialize)]
-struct <query_same>Query {
-    <param>: <param_type>,
-}
-
-#[get["<path>"]]
-async fn <fn_name>(params: web::Query<<<query>Query>>, pool: web::Data<<PgPool>>) ->> HttpResponse {
-    todo!()
-}<finish>
-      ]=],
-      {
-        path = i(1),
-        fn_name = i(2),
-        query = i(3),
-        query_same = rep(3),
-        param = i(4),
-        param_type = i(5),
+        body = f(to_pascal_case, { 2 }),
+        param = i(3),
+        param_type = i(4),
         finish = i(0),
       }
     )
@@ -118,6 +122,28 @@ pub async fn <fn_name>(<params>, pool: &PgPool) ->> Result<<(), sqlx::Error>> {
       {
         fn_name = i(1),
         params = i(2),
+        finish = i(0),
+      }
+    )
+  ),
+  s(
+    "dalle",
+    fmta(
+      [=[
+pub async fn <fn_name>(<params>, pool: &PgPool) ->> Result<<(), sqlx::Error>> {
+    sqlx::query!(
+        r#"
+        <sql_body>
+        "#,
+    )
+    .execute(pool)
+    .await
+}<finish>
+      ]=],
+      {
+        fn_name = i(1),
+        params = i(2),
+        sql_body = f(to_pascal_case, { 1 }, { user_args = { "user_args_value" } }),
         finish = i(0),
       }
     )
